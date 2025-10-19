@@ -1,4 +1,4 @@
--- HubScript.lua: Arsenal Multi-Hack (Aimbot corrigido, ESP/Wallhack ativado/desativado no HUB)
+-- HubScript.lua: Arsenal Multi-Hack v14 (Aimbot visível, ESP manual, NoRecoil ultra leve, HUB com botão [X] para fechar e mensagem para abrir com SHIFT)
 -- CheatBuddyManager
 
 local Players = game:GetService("Players")
@@ -8,37 +8,76 @@ local RunService = game:GetService("RunService")
 local aiming = false
 local enabledAimbot = false
 local enabledESP = false
+local enabledNoRecoil = false
+local hubOpen = true
 
 -- HUB GUI
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
 local frame = Instance.new("Frame", ScreenGui)
-frame.Size = UDim2.new(0, 200, 0, 80)
+frame.Size = UDim2.new(0, 200, 0, 120)
 frame.Position = UDim2.new(0, 20, 0, 20)
 frame.BackgroundTransparency = 0.4
 frame.BackgroundColor3 = Color3.new(0.15,0.15,0.15)
 frame.BorderSizePixel = 0
+frame.Visible = hubOpen
 
-local function createButton(text, position, callback)
-    local btn = Instance.new("TextButton", frame)
-    btn.Text = text
-    btn.Size = UDim2.new(0, 160, 0, 30)
-    btn.Position = UDim2.new(0, 20, 0, position)
-    btn.BackgroundColor3 = Color3.new(0.2,0.2,0.2)
-    btn.TextColor3 = Color3.new(1,1,1)
-    btn.MouseButton1Click:Connect(callback)
-    return btn
+local title = Instance.new("TextLabel", frame)
+title.Text = "Arsenal Multi-Hack"
+title.Size = UDim2.new(1, 0, 0, 20)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.BackgroundTransparency = 1
+title.TextColor3 = Color3.new(1,1,1)
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 18
+
+-- Botão [X] para fechar o HUB
+local closeBtn = Instance.new("TextButton", frame)
+closeBtn.Text = "X"
+closeBtn.Size = UDim2.new(0, 20, 0, 20)
+closeBtn.Position = UDim2.new(1, -25, 0, 0)
+closeBtn.BackgroundColor3 = Color3.new(0.7,0.2,0.2)
+closeBtn.TextColor3 = Color3.new(1,1,1)
+closeBtn.Font = Enum.Font.SourceSansBold
+closeBtn.TextSize = 16
+
+-- Mensagem para abrir com SHIFT
+local tip = Instance.new("TextLabel", ScreenGui)
+tip.Text = ""
+tip.Size = UDim2.new(0, 350, 0, 20)
+tip.Position = UDim2.new(0, 20, 0, 145)
+tip.BackgroundTransparency = 0.7
+tip.TextColor3 = Color3.new(1,1,0.5)
+tip.Font = Enum.Font.SourceSansBold
+tip.TextSize = 16
+tip.Visible = false
+
+local function showTip(msg, duration)
+    tip.Text = msg
+    tip.Visible = true
+    if duration and duration > 0 then
+        task.spawn(function()
+            wait(duration)
+            tip.Visible = false
+        end)
+    end
 end
 
-createButton("Toggle Aimbot", 10, function()
-    enabledAimbot = not enabledAimbot
-end)
-createButton("Toggle Wallhack", 50, function()
-    enabledESP = not enabledESP
+closeBtn.MouseButton1Click:Connect(function()
+    hubOpen = false
+    frame.Visible = false
+    showTip("HUB fechado! Pressione SHIFT para abrir novamente.", 4)
 end)
 
--- AIMBOT: Mira na cabeça do inimigo visível na tela enquanto segura botão direito
+-- SHIFT abre o HUB se estiver fechado
 UserInputService.InputBegan:Connect(function(input, processed)
     if processed then return end
+    if input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift then
+        if not hubOpen then
+            hubOpen = true
+            frame.Visible = true
+            tip.Visible = false
+        end
+    end
     if input.UserInputType == Enum.UserInputType.MouseButton2 then
         aiming = true
     end
@@ -50,10 +89,70 @@ UserInputService.InputEnded:Connect(function(input, processed)
     end
 end)
 
-local function isOnScreen(worldPos)
+local function createButton(text, position, callback)
+    local btn = Instance.new("TextButton", frame)
+    btn.Text = text
+    btn.Size = UDim2.new(0, 160, 0, 30)
+    btn.Position = UDim2.new(0, 20, 0, position)
+    btn.BackgroundColor3 = Color3.new(0.2,0.2,0.2)
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 16
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+createButton("Toggle Aimbot", 30, function()
+    enabledAimbot = not enabledAimbot
+end)
+createButton("Toggle Wallhack", 60, function()
+    enabledESP = not enabledESP
+    if not enabledESP then
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player.Character and player.Character:FindFirstChild("Head") then
+                for _, obj in ipairs(player.Character.Head:GetChildren()) do
+                    if obj:IsA("Highlight") and obj.Name == "ESPHighlight" then
+                        obj:Destroy()
+                    end
+                end
+            end
+        end
+    end
+end)
+createButton("Toggle NoRecoil", 90, function()
+    enabledNoRecoil = not enabledNoRecoil
+    for _, v in ipairs(game:GetService("ReplicatedStorage"):GetDescendants()) do
+        if v:IsA("ModuleScript") and v.Name == "GunStates" then
+            local success, states = pcall(require, v)
+            if success and states then
+                if enabledNoRecoil then
+                    if states.Recoil then states.Recoil = 0 end
+                    if states.Kick then states.Kick = 0 end
+                else
+                    -- Opcional: restaurar valores padrão se quiser manter o script seguro
+                end
+            end
+        end
+    end
+end)
+
+local function isVisibleOnScreen(part)
     local camera = workspace.CurrentCamera
-    local screenPos, onScreen = camera:WorldToViewportPoint(worldPos)
-    return onScreen and screenPos.Z > 0
+    local screenPos, onScreen = camera:WorldToViewportPoint(part.Position)
+    if not (onScreen and screenPos.Z > 0) then return false end
+    local rayOrigin = camera.CFrame.Position
+    local rayDir = (part.Position - rayOrigin)
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+    local raycastResult = workspace:Raycast(rayOrigin, rayDir, raycastParams)
+    if raycastResult == nil then
+        return true
+    elseif raycastResult.Instance and raycastResult.Instance:IsDescendantOf(part.Parent) then
+        return true
+    else
+        return false
+    end
 end
 
 local function getClosestVisibleEnemy()
@@ -62,9 +161,9 @@ local function getClosestVisibleEnemy()
     local closest, dist = nil, math.huge
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Team ~= LocalPlayer.Team and player.Character and player.Character:FindFirstChild("Head") then
-            local headPos = player.Character.Head.Position
-            if isOnScreen(headPos) then
-                local screenPos = camera:WorldToViewportPoint(headPos)
+            local head = player.Character.Head
+            if isVisibleOnScreen(head) then
+                local screenPos = camera:WorldToViewportPoint(head.Position)
                 local distance = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
                 if distance < dist then
                     closest = player
@@ -76,8 +175,8 @@ local function getClosestVisibleEnemy()
     return closest
 end
 
--- ESP/WALLHACK: Destaca inimigos (não mostra aliados) só quando enabledESP está true
 local function createESP(player)
+    if not enabledESP then return end
     if player == LocalPlayer or player.Team == LocalPlayer.Team then return end
     if player.Character and player.Character:FindFirstChild("Head") then
         if not player.Character.Head:FindFirstChild("ESPHighlight") then
@@ -100,7 +199,13 @@ local function removeESP(player)
     end
 end
 
+local espUpdateInterval = 1
+local lastESPUpdate = 0
+
 local function updateESP()
+    local t = tick()
+    if t - lastESPUpdate < espUpdateInterval then return end
+    lastESPUpdate = t
     for _, player in ipairs(Players:GetPlayers()) do
         removeESP(player)
         if enabledESP then
@@ -109,9 +214,7 @@ local function updateESP()
     end
 end
 
--- Loop principal
 RunService.RenderStepped:Connect(function()
-    -- AIMBOT
     if enabledAimbot and aiming then
         local target = getClosestVisibleEnemy()
         if target and target.Character and target.Character:FindFirstChild("Head") then
@@ -119,14 +222,16 @@ RunService.RenderStepped:Connect(function()
             camera.CFrame = CFrame.new(camera.CFrame.Position, target.Character.Head.Position)
         end
     end
-    -- WALLHACK/ESP
     updateESP()
 end)
 
--- Atualiza ESP em novos personagens
 Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function()
-        updateESP()
+        if enabledESP then
+            createESP(player)
+        else
+            removeESP(player)
+        end
     end)
 end)
 LocalPlayer.CharacterAdded:Connect(function()
