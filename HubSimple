@@ -1,0 +1,134 @@
+-- HubScript.lua: Arsenal Multi-Hack (Aimbot corrigido, ESP/Wallhack ativado/desativado no HUB)
+-- CheatBuddyManager
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local aiming = false
+local enabledAimbot = false
+local enabledESP = false
+
+-- HUB GUI
+local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
+local frame = Instance.new("Frame", ScreenGui)
+frame.Size = UDim2.new(0, 200, 0, 80)
+frame.Position = UDim2.new(0, 20, 0, 20)
+frame.BackgroundTransparency = 0.4
+frame.BackgroundColor3 = Color3.new(0.15,0.15,0.15)
+frame.BorderSizePixel = 0
+
+local function createButton(text, position, callback)
+    local btn = Instance.new("TextButton", frame)
+    btn.Text = text
+    btn.Size = UDim2.new(0, 160, 0, 30)
+    btn.Position = UDim2.new(0, 20, 0, position)
+    btn.BackgroundColor3 = Color3.new(0.2,0.2,0.2)
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+createButton("Toggle Aimbot", 10, function()
+    enabledAimbot = not enabledAimbot
+end)
+createButton("Toggle Wallhack", 50, function()
+    enabledESP = not enabledESP
+end)
+
+-- AIMBOT: Mira na cabeça do inimigo visível na tela enquanto segura botão direito
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        aiming = true
+    end
+end)
+UserInputService.InputEnded:Connect(function(input, processed)
+    if processed then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        aiming = false
+    end
+end)
+
+local function isOnScreen(worldPos)
+    local camera = workspace.CurrentCamera
+    local screenPos, onScreen = camera:WorldToViewportPoint(worldPos)
+    return onScreen and screenPos.Z > 0
+end
+
+local function getClosestVisibleEnemy()
+    local camera = workspace.CurrentCamera
+    local mousePos = UserInputService:GetMouseLocation()
+    local closest, dist = nil, math.huge
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Team ~= LocalPlayer.Team and player.Character and player.Character:FindFirstChild("Head") then
+            local headPos = player.Character.Head.Position
+            if isOnScreen(headPos) then
+                local screenPos = camera:WorldToViewportPoint(headPos)
+                local distance = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                if distance < dist then
+                    closest = player
+                    dist = distance
+                end
+            end
+        end
+    end
+    return closest
+end
+
+-- ESP/WALLHACK: Destaca inimigos (não mostra aliados) só quando enabledESP está true
+local function createESP(player)
+    if player == LocalPlayer or player.Team == LocalPlayer.Team then return end
+    if player.Character and player.Character:FindFirstChild("Head") then
+        if not player.Character.Head:FindFirstChild("ESPHighlight") then
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "ESPHighlight"
+            highlight.Adornee = player.Character
+            highlight.FillColor = Color3.new(1,0,0)
+            highlight.Parent = player.Character.Head
+        end
+    end
+end
+
+local function removeESP(player)
+    if player.Character and player.Character:FindFirstChild("Head") then
+        for _, obj in ipairs(player.Character.Head:GetChildren()) do
+            if obj:IsA("Highlight") and obj.Name == "ESPHighlight" then
+                obj:Destroy()
+            end
+        end
+    end
+end
+
+local function updateESP()
+    for _, player in ipairs(Players:GetPlayers()) do
+        removeESP(player)
+        if enabledESP then
+            createESP(player)
+        end
+    end
+end
+
+-- Loop principal
+RunService.RenderStepped:Connect(function()
+    -- AIMBOT
+    if enabledAimbot and aiming then
+        local target = getClosestVisibleEnemy()
+        if target and target.Character and target.Character:FindFirstChild("Head") then
+            local camera = workspace.CurrentCamera
+            camera.CFrame = CFrame.new(camera.CFrame.Position, target.Character.Head.Position)
+        end
+    end
+    -- WALLHACK/ESP
+    updateESP()
+end)
+
+-- Atualiza ESP em novos personagens
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        updateESP()
+    end)
+end)
+LocalPlayer.CharacterAdded:Connect(function()
+    updateESP()
+end)
