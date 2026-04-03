@@ -1,6 +1,5 @@
--- HubScript.lua: Arsenal Multi-Hack v14
--- Só funciona em Arsenal (https://www.roblox.com/games/286090429/Arsenal)
--- CheatBuddyManager
+-- HubScript.lua: Litterhub
+-- Universal
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -11,24 +10,6 @@ local enabledAimbot = false
 local enabledESP = false
 local enabledNoRecoil = false
 local hubOpen = true
-
--- Checagem automática: só ativa no Arsenal
-local ARSENAL_PLACE_ID = 286090429
-if game.PlaceId ~= ARSENAL_PLACE_ID then
-    local sg = Instance.new("ScreenGui", game.CoreGui)
-    local msg = Instance.new("TextLabel", sg)
-    msg.Size = UDim2.new(0, 500, 0, 60)
-    msg.Position = UDim2.new(0.5, -250, 0, 50)
-    msg.Text = "Este Hub só funciona no Arsenal!\nJogo atual não suportado."
-    msg.TextColor3 = Color3.new(1,0.4,0.4)
-    msg.TextSize = 26
-    msg.Font = Enum.Font.SourceSansBold
-    msg.BackgroundTransparency = 0.35
-    msg.BackgroundColor3 = Color3.new(0.12,0.12,0.12)
-    wait(8)
-    sg:Destroy()
-    return
-end
 
 -- HUB GUI
 local ScreenGui = Instance.new("ScreenGui", game.CoreGui)
@@ -41,7 +22,7 @@ frame.BorderSizePixel = 0
 frame.Visible = hubOpen
 
 local title = Instance.new("TextLabel", frame)
-title.Text = "Arsenal Multi-Hack"
+title.Text = "Litterhub"
 title.Size = UDim2.new(1, 0, 0, 20)
 title.Position = UDim2.new(0, 0, 0, 0)
 title.BackgroundTransparency = 1
